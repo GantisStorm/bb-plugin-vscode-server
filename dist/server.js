@@ -18930,7 +18930,8 @@ function isLoopbackUrl(url2) {
   return hostname3 === "127.0.0.1" || hostname3 === "::1" || hostname3 === "localhost";
 }
 function normalizeDirectory(value) {
-  return resolve(value.trim());
+  const trimmed = value.trim();
+  return trimmed === "" ? "" : resolve(trimmed);
 }
 async function isDirectory(path) {
   try {
@@ -19008,7 +19009,7 @@ async function plugin(bb) {
     autoCaptureLocalServer: {
       type: "boolean",
       label: "Capture local server",
-      description: "Turn on to detect code-server or VS Code Server on ports 8080 and 8000 and save the first healthy endpoint. Turn off to clear the configured server URL.",
+      description: "Turn on to detect code-server or VS Code Server on ports 8080 and 8000 and save the first healthy endpoint. Turn off to clear every plugin setting.",
       default: false
     },
     sourceUserDataDirectory: {
@@ -19080,12 +19081,22 @@ ${profile.targetExtensionsDirectory}`;
   const storeServerUrl = async (serverUrl) => {
     await settings.experimental_set({ serverUrl });
   };
+  const clearSettings = async () => {
+    await bb.storage.kv.delete("profile-import");
+    await settings.experimental_set({
+      serverUrl: "",
+      sourceUserDataDirectory: "",
+      sourceExtensionsDirectory: "",
+      targetUserDataDirectory: "",
+      targetExtensionsDirectory: ""
+    });
+  };
   settings.onChange((next, previous) => {
     if (next.autoCaptureLocalServer && !previous.autoCaptureLocalServer) {
       void discoverAndStoreServerUrl(storeServerUrl);
     }
     if (!next.autoCaptureLocalServer && previous.autoCaptureLocalServer) {
-      void settings.experimental_set({ serverUrl: "" });
+      void clearSettings();
     }
     if (next.serverUrl === previous.serverUrl && next.sourceUserDataDirectory === previous.sourceUserDataDirectory && next.sourceExtensionsDirectory === previous.sourceExtensionsDirectory && next.targetUserDataDirectory === previous.targetUserDataDirectory && next.targetExtensionsDirectory === previous.targetExtensionsDirectory) {
       return;

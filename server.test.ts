@@ -72,12 +72,16 @@ describe("VS Code Server configuration", () => {
     }
   });
 
-  it("clears a configured server when the settings switch is disabled", async () => {
+  it("clears every configured setting when the settings switch is disabled", async () => {
     const { bb, harness } = createFakePluginHost({
       pluginId: "vscode-server",
       settings: {
         serverUrl: "http://127.0.0.1:8080",
         autoCaptureLocalServer: true,
+        sourceUserDataDirectory: "/source-user",
+        sourceExtensionsDirectory: "/source-extensions",
+        targetUserDataDirectory: "/target-user",
+        targetExtensionsDirectory: "/target-extensions",
       },
     });
     await plugin(bb);
@@ -86,7 +90,15 @@ describe("VS Code Server configuration", () => {
     await vi.waitFor(async () => {
       await expect(
         harness.behavior.callRpc("vscode_server_url", { threadId: null }),
-      ).resolves.toMatchObject({ url: null });
+      ).resolves.toMatchObject({
+        url: null,
+        profile: {
+          sourceUserDataDirectory: "",
+          sourceExtensionsDirectory: "",
+          targetUserDataDirectory: "",
+          targetExtensionsDirectory: "",
+        },
+      });
     });
   });
   it("stores a detected loopback URL through its supplied setting writer", async () => {
