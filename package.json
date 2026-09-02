@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-vscode-server",
-  "version": "0.1.3",
+  "version": "0.1.5",
   "type": "module",
   "description": "Embeds a configured code-server or VS Code Server instance in BB right-panel tabs.",
   "license": "MIT",

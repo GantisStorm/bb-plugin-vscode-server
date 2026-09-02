@@ -125,28 +125,25 @@ function VsCodeServerPanel() {
 }
 
 export default definePluginApp((app) => {
-  let nextPanelNumber = 1;
-
   app.slots.threadPanelAction({
     id: "vscode-server",
-    title: "Open VS Code Server",
+    title: "VS Code",
     icon: "Code2",
     component: VsCodeServerPanel,
     layout: "flush",
-    run: ({ openPanel }) => {
-      const panelNumber = nextPanelNumber++;
-      openPanel({ title: `VS Code ${panelNumber}`, params: { panelNumber } });
+    run: ({ openPanel, threadId }) => {
+      const threadSuffix = threadId.slice(-4);
+      openPanel({ title: `VS Code (${threadSuffix})`, params: { threadId } });
     },
   });
   app.slots.experimental_newThreadPanelAction({
     id: "vscode-server",
-    title: "Open VS Code Server",
+    title: "VS Code",
     icon: "Code2",
     component: VsCodeServerPanel,
     layout: "flush",
     run: ({ openPanel }) => {
-      const panelNumber = nextPanelNumber++;
-      openPanel({ title: `VS Code ${panelNumber}`, params: { panelNumber } });
+      openPanel({ title: "VS Code", params: { source: "new-thread" } });
     },
   });
 });
