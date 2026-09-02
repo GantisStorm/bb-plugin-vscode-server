@@ -132,8 +132,7 @@ export default definePluginApp((app) => {
     component: VsCodeServerPanel,
     layout: "flush",
     run: ({ openPanel, threadId }) => {
-      const threadSuffix = threadId.slice(-4);
-      openPanel({ title: `VS Code (${threadSuffix})`, params: { threadId } });
+      openPanel({ title: "VS Code", params: { threadId } });
     },
   });
   app.slots.experimental_newThreadPanelAction({
