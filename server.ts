@@ -268,9 +268,14 @@ export default async function plugin(bb: BbPluginApi) {
     });
   };
 
+  const captureLocalServer = async (): Promise<string | null> => {
+    await restoreSettings();
+    return discoverAndStoreServerUrl(storeServerUrl);
+  };
+
   settings.onChange((next, previous) => {
     if (next.autoCaptureLocalServer && !previous.autoCaptureLocalServer) {
-      void restoreSettings().then(() => discoverAndStoreServerUrl(storeServerUrl));
+      void captureLocalServer();
     }
     if (!next.autoCaptureLocalServer && previous.autoCaptureLocalServer) {
       void clearSettings();
@@ -291,7 +296,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     vscode_server_url: ({ threadId }) => getResponse(threadId),
     discover_vscode_server_url: async ({ threadId }) => {
-      const url = await discoverAndStoreServerUrl(storeServerUrl);
+      const url = await captureLocalServer();
       if (url !== null) await importProfile(url);
       return getResponse(threadId);
     },

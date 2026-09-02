@@ -101,6 +101,38 @@ describe("VS Code Server configuration", () => {
       });
     });
   });
+
+  it("restores profile paths before panel detection", async () => {
+    const { bb, harness } = createFakePluginHost({
+      pluginId: "vscode-server",
+      settings: {
+        serverUrl: "",
+        sourceUserDataDirectory: "",
+        sourceExtensionsDirectory: "",
+        targetUserDataDirectory: "",
+        targetExtensionsDirectory: "",
+      },
+    });
+    const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+
+    try {
+      await plugin(bb);
+      await expect(
+        harness.behavior.callRpc("discover_vscode_server_url", { threadId: null }),
+      ).resolves.toMatchObject({
+        url: "http://127.0.0.1:8080",
+        profile: {
+          sourceUserDataDirectory: expect.stringMatching(/Code\/User$/),
+          sourceExtensionsDirectory: expect.stringMatching(/\.vscode\/extensions$/),
+          targetUserDataDirectory: expect.stringMatching(/\.local\/share\/code-server$/),
+          targetExtensionsDirectory: expect.stringMatching(/\.local\/share\/code-server\/extensions$/),
+        },
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it("stores a detected loopback URL through its supplied setting writer", async () => {
     const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     const storeServerUrl = vi.fn().mockResolvedValue(undefined);

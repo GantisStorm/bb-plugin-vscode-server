@@ -19103,9 +19103,13 @@ ${profile.targetExtensionsDirectory}`;
       targetExtensionsDirectory: defaultTargetExtensionsDirectory
     });
   };
+  const captureLocalServer = async () => {
+    await restoreSettings();
+    return discoverAndStoreServerUrl(storeServerUrl);
+  };
   settings.onChange((next, previous) => {
     if (next.autoCaptureLocalServer && !previous.autoCaptureLocalServer) {
-      void restoreSettings().then(() => discoverAndStoreServerUrl(storeServerUrl));
+      void captureLocalServer();
     }
     if (!next.autoCaptureLocalServer && previous.autoCaptureLocalServer) {
       void clearSettings();
@@ -19119,7 +19123,7 @@ ${profile.targetExtensionsDirectory}`;
   bb.rpc.register(rpcContract, {
     vscode_server_url: ({ threadId }) => getResponse(threadId),
     discover_vscode_server_url: async ({ threadId }) => {
-      const url2 = await discoverAndStoreServerUrl(storeServerUrl);
+      const url2 = await captureLocalServer();
       if (url2 !== null) await importProfile(url2);
       return getResponse(threadId);
     }
