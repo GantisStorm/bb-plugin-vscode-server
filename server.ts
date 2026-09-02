@@ -22,6 +22,11 @@ type ProfileImportStatus = z.infer<typeof profileImportStatusSchema>;
 
 const loopbackCandidates = ["http://127.0.0.1:8080", "http://127.0.0.1:8000"];
 const homeDirectory = homedir();
+const defaultSourceUserDataDirectory = resolve(homeDirectory, "Library/Application Support/Code/User");
+const defaultSourceExtensionsDirectory = resolve(homeDirectory, ".vscode/extensions");
+const defaultTargetUserDataDirectory = resolve(homeDirectory, ".local/share/code-server");
+const defaultTargetExtensionsDirectory = resolve(homeDirectory, ".local/share/code-server/extensions");
+
 
 export const rpcContract = defineRpcContract({
   vscode_server_url: {
@@ -166,32 +171,32 @@ export default async function plugin(bb: BbPluginApi) {
       type: "boolean",
       label: "Capture local server",
       description:
-        "Turn on to detect code-server or VS Code Server on ports 8080 and 8000 and save the first healthy endpoint. Turn off to clear every plugin setting.",
+        "Turn on to restore the standard VS Code profile paths, then detect code-server or VS Code Server on ports 8080 and 8000. Turn off to clear every plugin setting.",
       default: false,
     },
     sourceUserDataDirectory: {
       type: "string",
       label: "Desktop VS Code profile",
       description: "The desktop VS Code User directory to import after a local server URL is configured.",
-      default: resolve(homeDirectory, "Library/Application Support/Code/User"),
+      default: defaultSourceUserDataDirectory,
     },
     sourceExtensionsDirectory: {
       type: "string",
       label: "Desktop VS Code extensions",
       description: "The desktop VS Code extensions directory to import after a local server URL is configured.",
-      default: resolve(homeDirectory, ".vscode/extensions"),
+      default: defaultSourceExtensionsDirectory,
     },
     targetUserDataDirectory: {
       type: "string",
       label: "code-server profile",
       description: "The code-server user-data directory that receives the imported VS Code profile.",
-      default: resolve(homeDirectory, ".local/share/code-server"),
+      default: defaultTargetUserDataDirectory,
     },
     targetExtensionsDirectory: {
       type: "string",
       label: "code-server extensions",
       description: "The code-server extensions directory that receives the imported VS Code extensions.",
-      default: resolve(homeDirectory, ".local/share/code-server/extensions"),
+      default: defaultTargetExtensionsDirectory,
     },
   });
 
@@ -254,9 +259,18 @@ export default async function plugin(bb: BbPluginApi) {
     });
   };
 
+  const restoreSettings = async (): Promise<void> => {
+    await settings.experimental_set({
+      sourceUserDataDirectory: defaultSourceUserDataDirectory,
+      sourceExtensionsDirectory: defaultSourceExtensionsDirectory,
+      targetUserDataDirectory: defaultTargetUserDataDirectory,
+      targetExtensionsDirectory: defaultTargetExtensionsDirectory,
+    });
+  };
+
   settings.onChange((next, previous) => {
     if (next.autoCaptureLocalServer && !previous.autoCaptureLocalServer) {
-      void discoverAndStoreServerUrl(storeServerUrl);
+      void restoreSettings().then(() => discoverAndStoreServerUrl(storeServerUrl));
     }
     if (!next.autoCaptureLocalServer && previous.autoCaptureLocalServer) {
       void clearSettings();
