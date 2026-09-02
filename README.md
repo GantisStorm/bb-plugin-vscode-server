@@ -30,7 +30,7 @@ The URL must be absolute HTTP or HTTPS and must not contain credentials. The plu
 
 ## Use
 
-In any thread, open the right panel, choose **Open new tab**, then select **Open VS Code Server**. Each invocation creates a separately named tab. The panel reloads its configuration when opened; use **Reload configuration** after changing the setting while it is already open. When no URL is configured, **Detect local server** probes the standard local VS Code Server and code-server health endpoints on ports 8080 and 8000, then opens the first healthy endpoint in that panel without changing saved settings.
+In any thread, open the right panel, choose **Open new tab**, then select **Open VS Code Server**. Each invocation creates a separately named tab. The panel reloads its configuration when opened; use **Reload configuration** after changing the setting while it is already open. When no URL is configured, **Detect local server** probes the standard local VS Code Server and code-server health endpoints on ports 8080 and 8000, then saves the first healthy endpoint in the plugin setting and opens it in that panel. **Open in Browser** delegates the URL to BB’s native Browser, whose tabs remain available across thread navigation.
 
 ## Development
 

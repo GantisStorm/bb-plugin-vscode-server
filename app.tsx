@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { definePluginApp, useRpc } from "@get-bb/plugin-sdk/app";
+import { definePluginApp, useBbNavigate, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "./server";
 
 type UrlState =
@@ -11,6 +11,7 @@ type UrlState =
 
 function VsCodeServerPanel() {
   const rpc = useRpc<typeof rpcContract>();
+  const navigate = useBbNavigate();
   const [state, setState] = useState<UrlState>({ kind: "loading" });
 
   const load = useCallback(() => {
@@ -43,13 +44,25 @@ function VsCodeServerPanel() {
 
   if (state.kind === "ready") {
     return (
-      <iframe
-        title="VS Code Server"
-        src={state.url}
-        className="h-full w-full border-0 bg-background"
-        allow="clipboard-read; clipboard-write; fullscreen"
-        referrerPolicy="no-referrer"
-      />
+      <div className="flex h-full min-h-0 flex-col bg-background">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-3 py-2">
+          <span className="truncate text-sm text-muted-foreground">{state.url}</span>
+          <button
+            type="button"
+            className="inline-flex h-8 shrink-0 items-center rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+            onClick={() => navigate.openUrl(state.url)}
+          >
+            Open in Browser
+          </button>
+        </div>
+        <iframe
+          title="VS Code Server"
+          src={state.url}
+          className="min-h-0 flex-1 border-0 bg-background"
+          allow="clipboard-read; clipboard-write; fullscreen"
+          referrerPolicy="no-referrer"
+        />
+      </div>
     );
   }
 

@@ -50,6 +50,14 @@ export async function discoverServerUrl(): Promise<string | null> {
   return null;
 }
 
+export async function discoverAndStoreServerUrl(
+  storeServerUrl: (url: string) => Promise<void>,
+): Promise<string | null> {
+  const url = await discoverServerUrl();
+  if (url !== null) await storeServerUrl(url);
+  return url;
+}
+
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define({
     serverUrl: {
@@ -67,6 +75,10 @@ export default async function plugin(bb: BbPluginApi) {
         url: normalizeServerUrl(serverUrl) ?? normalizeServerUrl(process.env.VSCODE_SERVER_URL ?? ""),
       };
     },
-    discover_vscode_server_url: async () => ({ url: await discoverServerUrl() }),
+    discover_vscode_server_url: async () => ({
+      url: await discoverAndStoreServerUrl(async (serverUrl) => {
+        await settings.experimental_set({ serverUrl });
+      }),
+    }),
   });
 }

@@ -18920,6 +18920,11 @@ async function discoverServerUrl() {
   }
   return null;
 }
+async function discoverAndStoreServerUrl(storeServerUrl) {
+  const url2 = await discoverServerUrl();
+  if (url2 !== null) await storeServerUrl(url2);
+  return url2;
+}
 async function plugin(bb) {
   const settings = bb.settings.define({
     serverUrl: {
@@ -18936,11 +18941,16 @@ async function plugin(bb) {
         url: normalizeServerUrl(serverUrl) ?? normalizeServerUrl(process.env.VSCODE_SERVER_URL ?? "")
       };
     },
-    discover_vscode_server_url: async () => ({ url: await discoverServerUrl() })
+    discover_vscode_server_url: async () => ({
+      url: await discoverAndStoreServerUrl(async (serverUrl) => {
+        await settings.experimental_set({ serverUrl });
+      })
+    })
   });
 }
 export {
   plugin as default,
+  discoverAndStoreServerUrl,
   discoverServerUrl,
   rpcContract
 };
