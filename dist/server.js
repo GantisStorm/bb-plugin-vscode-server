@@ -19077,11 +19077,23 @@ ${profile.targetExtensionsDirectory}`;
       activeImportKey = null;
     }
   };
+  const storeCapturedServerUrl = async (serverUrl) => {
+    await bb.storage.kv.set("captured-server-url", serverUrl);
+    await settings.experimental_set({ serverUrl });
+  };
+  const clearCapturedServerUrl = async (serverUrl) => {
+    const capturedServerUrl = await bb.storage.kv.get("captured-server-url");
+    await bb.storage.kv.delete("captured-server-url");
+    if (capturedServerUrl === normalizeServerUrl(serverUrl)) {
+      await settings.experimental_set({ serverUrl: "" });
+    }
+  };
   settings.onChange((next, previous) => {
     if (next.autoCaptureLocalServer && !previous.autoCaptureLocalServer) {
-      void discoverAndStoreServerUrl(async (serverUrl) => {
-        await settings.experimental_set({ serverUrl });
-      });
+      void discoverAndStoreServerUrl(storeCapturedServerUrl);
+    }
+    if (!next.autoCaptureLocalServer && previous.autoCaptureLocalServer) {
+      void clearCapturedServerUrl(next.serverUrl);
     }
     if (next.serverUrl === previous.serverUrl && next.sourceUserDataDirectory === previous.sourceUserDataDirectory && next.sourceExtensionsDirectory === previous.sourceExtensionsDirectory && next.targetUserDataDirectory === previous.targetUserDataDirectory && next.targetExtensionsDirectory === previous.targetExtensionsDirectory) {
       return;
@@ -19092,9 +19104,7 @@ ${profile.targetExtensionsDirectory}`;
   bb.rpc.register(rpcContract, {
     vscode_server_url: ({ threadId }) => getResponse(threadId),
     discover_vscode_server_url: async ({ threadId }) => {
-      const url2 = await discoverAndStoreServerUrl(async (serverUrl) => {
-        await settings.experimental_set({ serverUrl });
-      });
+      const url2 = await discoverAndStoreServerUrl(storeCapturedServerUrl);
       if (url2 !== null) await importProfile(url2);
       return getResponse(threadId);
     }

@@ -238,11 +238,25 @@ export default async function plugin(bb: BbPluginApi) {
     }
   };
 
+  const storeCapturedServerUrl = async (serverUrl: string): Promise<void> => {
+    await bb.storage.kv.set("captured-server-url", serverUrl);
+    await settings.experimental_set({ serverUrl });
+  };
+
+  const clearCapturedServerUrl = async (serverUrl: string): Promise<void> => {
+    const capturedServerUrl = await bb.storage.kv.get<string>("captured-server-url");
+    await bb.storage.kv.delete("captured-server-url");
+    if (capturedServerUrl === normalizeServerUrl(serverUrl)) {
+      await settings.experimental_set({ serverUrl: "" });
+    }
+  };
+
   settings.onChange((next, previous) => {
     if (next.autoCaptureLocalServer && !previous.autoCaptureLocalServer) {
-      void discoverAndStoreServerUrl(async (serverUrl) => {
-        await settings.experimental_set({ serverUrl });
-      });
+      void discoverAndStoreServerUrl(storeCapturedServerUrl);
+    }
+    if (!next.autoCaptureLocalServer && previous.autoCaptureLocalServer) {
+      void clearCapturedServerUrl(next.serverUrl);
     }
     if (
       next.serverUrl === previous.serverUrl &&
@@ -260,9 +274,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     vscode_server_url: ({ threadId }) => getResponse(threadId),
     discover_vscode_server_url: async ({ threadId }) => {
-      const url = await discoverAndStoreServerUrl(async (serverUrl) => {
-        await settings.experimental_set({ serverUrl });
-      });
+      const url = await discoverAndStoreServerUrl(storeCapturedServerUrl);
       if (url !== null) await importProfile(url);
       return getResponse(threadId);
     },

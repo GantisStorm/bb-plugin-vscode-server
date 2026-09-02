@@ -45,7 +45,7 @@ describe("VS Code Server configuration", () => {
   });
 
 
-  it("captures and saves a local server when the settings toggle is enabled", async () => {
+  it("captures a local server when the settings switch is enabled and clears it when disabled", async () => {
     const { bb, harness } = createFakePluginHost({
       pluginId: "vscode-server",
       settings: { serverUrl: "" },
@@ -60,6 +60,12 @@ describe("VS Code Server configuration", () => {
         await expect(
           harness.behavior.callRpc("vscode_server_url", { threadId: null }),
         ).resolves.toMatchObject({ url: "http://127.0.0.1:8080" });
+      });
+      await harness.behavior.setSettings({ autoCaptureLocalServer: false });
+      await vi.waitFor(async () => {
+        await expect(
+          harness.behavior.callRpc("vscode_server_url", { threadId: null }),
+        ).resolves.toMatchObject({ url: null });
       });
     } finally {
       vi.unstubAllGlobals();
