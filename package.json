@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-vscode-server",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "type": "module",
   "description": "Embeds a configured code-server or VS Code Server instance in BB right-panel tabs.",
   "license": "MIT",
@@ -29,7 +29,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@get-bb/plugin-sdk": "0.4.34",
+    "@get-bb/plugin-sdk": "file:../packages/plugin-sdk/get-bb-plugin-sdk-0.4.35.tgz",
     "@pierre/diffs": "^1.2.9",
     "@radix-ui/react-alert-dialog": "^1.1.19",
     "@radix-ui/react-context-menu": "^2.3.3",

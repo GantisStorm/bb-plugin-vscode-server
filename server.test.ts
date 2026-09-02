@@ -45,6 +45,26 @@ describe("VS Code Server configuration", () => {
   });
 
 
+  it("captures and saves a local server when the settings toggle is enabled", async () => {
+    const { bb, harness } = createFakePluginHost({
+      pluginId: "vscode-server",
+      settings: { serverUrl: "" },
+    });
+    const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+
+    try {
+      await plugin(bb);
+      await harness.behavior.setSettings({ autoCaptureLocalServer: true });
+      await vi.waitFor(async () => {
+        await expect(
+          harness.behavior.callRpc("vscode_server_url", { threadId: null }),
+        ).resolves.toMatchObject({ url: "http://127.0.0.1:8080" });
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it("stores a detected loopback URL through its supplied setting writer", async () => {
     const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     const storeServerUrl = vi.fn().mockResolvedValue(undefined);

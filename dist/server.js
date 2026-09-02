@@ -19005,6 +19005,12 @@ async function plugin(bb) {
       description: "The http(s) URL of code-server or VS Code Server. Saving a local URL imports the configured desktop profile. Overrides VSCODE_SERVER_URL.",
       default: ""
     },
+    autoCaptureLocalServer: {
+      type: "boolean",
+      label: "Auto-capture local server",
+      description: "Turn on to detect code-server or VS Code Server on ports 8080 and 8000. The setting turns itself off after each capture attempt.",
+      default: false
+    },
     sourceUserDataDirectory: {
       type: "string",
       label: "Desktop VS Code profile",
@@ -19072,6 +19078,13 @@ ${profile.targetExtensionsDirectory}`;
     }
   };
   settings.onChange((next, previous) => {
+    if (next.autoCaptureLocalServer && !previous.autoCaptureLocalServer) {
+      void discoverAndStoreServerUrl(async (serverUrl) => {
+        await settings.experimental_set({ serverUrl, autoCaptureLocalServer: false });
+      }).then(async (serverUrl) => {
+        if (serverUrl === null) await settings.experimental_set({ autoCaptureLocalServer: false });
+      });
+    }
     if (next.serverUrl === previous.serverUrl && next.sourceUserDataDirectory === previous.sourceUserDataDirectory && next.sourceExtensionsDirectory === previous.sourceExtensionsDirectory && next.targetUserDataDirectory === previous.targetUserDataDirectory && next.targetExtensionsDirectory === previous.targetExtensionsDirectory) {
       return;
     }
