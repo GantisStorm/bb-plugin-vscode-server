@@ -18883,8 +18883,13 @@ function date4(params) {
 var configuredUrlSchema = external_exports.object({
   url: external_exports.string().url().nullable()
 });
+var loopbackCandidates = ["http://127.0.0.1:8080", "http://127.0.0.1:8000"];
 var rpcContract = defineRpcContract({
   vscode_server_url: {
+    input: external_exports.null(),
+    output: configuredUrlSchema
+  },
+  discover_vscode_server_url: {
     input: external_exports.null(),
     output: configuredUrlSchema
   }
@@ -18902,6 +18907,19 @@ function normalizeServerUrl(value) {
     return null;
   }
 }
+async function discoverServerUrl() {
+  for (const url2 of loopbackCandidates) {
+    try {
+      const response = await fetch(`${url2}/healthz`, {
+        redirect: "error",
+        signal: AbortSignal.timeout(500)
+      });
+      if (response.ok) return url2;
+    } catch {
+    }
+  }
+  return null;
+}
 async function plugin(bb) {
   const settings = bb.settings.define({
     serverUrl: {
@@ -18917,11 +18935,13 @@ async function plugin(bb) {
       return {
         url: normalizeServerUrl(serverUrl) ?? normalizeServerUrl(process.env.VSCODE_SERVER_URL ?? "")
       };
-    }
+    },
+    discover_vscode_server_url: async () => ({ url: await discoverServerUrl() })
   });
 }
 export {
   plugin as default,
+  discoverServerUrl,
   rpcContract
 };
 //# sourceMappingURL=server.js.map

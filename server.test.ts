@@ -1,6 +1,6 @@
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
-import { describe, expect, it } from "vitest";
-import plugin from "./server";
+import { describe, expect, it, vi } from "vitest";
+import plugin, { discoverServerUrl } from "./server";
 
 describe("VS Code Server configuration", () => {
   it("normalizes a configured server URL before exposing it to the panel", async () => {
@@ -25,5 +25,20 @@ describe("VS Code Server configuration", () => {
     await expect(harness.behavior.callRpc("vscode_server_url", null)).resolves.toEqual({
       url: null,
     });
+  });
+
+  it("detects a loopback server that exposes the VS Code health endpoint", async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+
+    try {
+      await expect(discoverServerUrl()).resolves.toBe("http://127.0.0.1:8080");
+      expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:8080/healthz", {
+        redirect: "error",
+        signal: expect.any(AbortSignal),
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

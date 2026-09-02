@@ -5,8 +5,14 @@ const configuredUrlSchema = z.object({
   url: z.string().url().nullable(),
 });
 
+const loopbackCandidates = ["http://127.0.0.1:8080", "http://127.0.0.1:8000"];
+
 export const rpcContract = defineRpcContract({
   vscode_server_url: {
+    input: z.null(),
+    output: configuredUrlSchema,
+  },
+  discover_vscode_server_url: {
     input: z.null(),
     output: configuredUrlSchema,
   },
@@ -31,6 +37,19 @@ function normalizeServerUrl(value: string): string | null {
   }
 }
 
+export async function discoverServerUrl(): Promise<string | null> {
+  for (const url of loopbackCandidates) {
+    try {
+      const response = await fetch(`${url}/healthz`, {
+        redirect: "error",
+        signal: AbortSignal.timeout(500),
+      });
+      if (response.ok) return url;
+    } catch {}
+  }
+  return null;
+}
+
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define({
     serverUrl: {
@@ -48,5 +67,6 @@ export default async function plugin(bb: BbPluginApi) {
         url: normalizeServerUrl(serverUrl) ?? normalizeServerUrl(process.env.VSCODE_SERVER_URL ?? ""),
       };
     },
+    discover_vscode_server_url: async () => ({ url: await discoverServerUrl() }),
   });
 }

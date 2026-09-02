@@ -4,6 +4,7 @@ import type { rpcContract } from "./server";
 
 type UrlState =
   | { kind: "loading" }
+  | { kind: "detecting" }
   | { kind: "ready"; url: string }
   | { kind: "missing" }
   | { kind: "error"; message: string };
@@ -15,6 +16,18 @@ function VsCodeServerPanel() {
   const load = useCallback(() => {
     setState({ kind: "loading" });
     rpc.call("vscode_server_url").then(
+      ({ url }) => setState(url === null ? { kind: "missing" } : { kind: "ready", url }),
+      (cause) =>
+        setState({
+          kind: "error",
+          message: cause instanceof Error ? cause.message : String(cause),
+        }),
+    );
+  }, [rpc]);
+
+  const discover = useCallback(() => {
+    setState({ kind: "detecting" });
+    rpc.call("discover_vscode_server_url").then(
       ({ url }) => setState(url === null ? { kind: "missing" } : { kind: "ready", url }),
       (cause) =>
         setState({
@@ -42,10 +55,12 @@ function VsCodeServerPanel() {
 
   const detail =
     state.kind === "missing"
-      ? "Set VS Code Server URL in this plugin’s settings, or set VSCODE_SERVER_URL for BB’s server process."
+      ? "Set VS Code Server URL in this plugin’s settings, set VSCODE_SERVER_URL for BB’s server process, or detect a local server on port 8080 or 8000."
       : state.kind === "error"
         ? state.message
-        : "Loading VS Code Server configuration…";
+        : state.kind === "detecting"
+          ? "Detecting a local VS Code Server…"
+          : "Loading VS Code Server configuration…";
 
   return (
     <div className="flex h-full items-center justify-center bg-background p-6">
@@ -54,7 +69,15 @@ function VsCodeServerPanel() {
           <h2 className="text-sm font-medium text-foreground">VS Code Server</h2>
           <p className="text-sm leading-6 text-muted-foreground">{detail}</p>
         </div>
-        {state.kind === "loading" ? null : (
+        {state.kind === "loading" || state.kind === "detecting" ? null : state.kind === "missing" ? (
+          <button
+            type="button"
+            className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+            onClick={discover}
+          >
+            Detect local server
+          </button>
+        ) : (
           <button
             type="button"
             className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
