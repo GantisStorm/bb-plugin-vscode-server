@@ -19008,7 +19008,7 @@ async function plugin(bb) {
     autoCaptureLocalServer: {
       type: "boolean",
       label: "Capture local server",
-      description: "Turn on to detect code-server or VS Code Server on ports 8080 and 8000 and save the first healthy endpoint. Turn it off and on again to capture again.",
+      description: "Turn on to detect code-server or VS Code Server on ports 8080 and 8000 and save the first healthy endpoint. Turn off to clear the server URL captured by this switch.",
       default: false
     },
     sourceUserDataDirectory: {
