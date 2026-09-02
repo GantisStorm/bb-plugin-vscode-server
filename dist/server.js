@@ -19008,7 +19008,7 @@ async function plugin(bb) {
     autoCaptureLocalServer: {
       type: "boolean",
       label: "Capture local server",
-      description: "Turn on to detect code-server or VS Code Server on ports 8080 and 8000 and save the first healthy endpoint. Turn off to clear the server URL captured by this switch.",
+      description: "Turn on to detect code-server or VS Code Server on ports 8080 and 8000 and save the first healthy endpoint. Turn off to clear the configured server URL.",
       default: false
     },
     sourceUserDataDirectory: {
@@ -19077,23 +19077,15 @@ ${profile.targetExtensionsDirectory}`;
       activeImportKey = null;
     }
   };
-  const storeCapturedServerUrl = async (serverUrl) => {
-    await bb.storage.kv.set("captured-server-url", serverUrl);
+  const storeServerUrl = async (serverUrl) => {
     await settings.experimental_set({ serverUrl });
-  };
-  const clearCapturedServerUrl = async (serverUrl) => {
-    const capturedServerUrl = await bb.storage.kv.get("captured-server-url");
-    await bb.storage.kv.delete("captured-server-url");
-    if (capturedServerUrl === normalizeServerUrl(serverUrl)) {
-      await settings.experimental_set({ serverUrl: "" });
-    }
   };
   settings.onChange((next, previous) => {
     if (next.autoCaptureLocalServer && !previous.autoCaptureLocalServer) {
-      void discoverAndStoreServerUrl(storeCapturedServerUrl);
+      void discoverAndStoreServerUrl(storeServerUrl);
     }
     if (!next.autoCaptureLocalServer && previous.autoCaptureLocalServer) {
-      void clearCapturedServerUrl(next.serverUrl);
+      void settings.experimental_set({ serverUrl: "" });
     }
     if (next.serverUrl === previous.serverUrl && next.sourceUserDataDirectory === previous.sourceUserDataDirectory && next.sourceExtensionsDirectory === previous.sourceExtensionsDirectory && next.targetUserDataDirectory === previous.targetUserDataDirectory && next.targetExtensionsDirectory === previous.targetExtensionsDirectory) {
       return;
@@ -19104,7 +19096,7 @@ ${profile.targetExtensionsDirectory}`;
   bb.rpc.register(rpcContract, {
     vscode_server_url: ({ threadId }) => getResponse(threadId),
     discover_vscode_server_url: async ({ threadId }) => {
-      const url2 = await discoverAndStoreServerUrl(storeCapturedServerUrl);
+      const url2 = await discoverAndStoreServerUrl(storeServerUrl);
       if (url2 !== null) await importProfile(url2);
       return getResponse(threadId);
     }

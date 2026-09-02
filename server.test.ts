@@ -71,6 +71,24 @@ describe("VS Code Server configuration", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("clears a configured server when the settings switch is disabled", async () => {
+    const { bb, harness } = createFakePluginHost({
+      pluginId: "vscode-server",
+      settings: {
+        serverUrl: "http://127.0.0.1:8080",
+        autoCaptureLocalServer: true,
+      },
+    });
+    await plugin(bb);
+
+    await harness.behavior.setSettings({ autoCaptureLocalServer: false });
+    await vi.waitFor(async () => {
+      await expect(
+        harness.behavior.callRpc("vscode_server_url", { threadId: null }),
+      ).resolves.toMatchObject({ url: null });
+    });
+  });
   it("stores a detected loopback URL through its supplied setting writer", async () => {
     const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     const storeServerUrl = vi.fn().mockResolvedValue(undefined);

@@ -165,7 +165,7 @@ export default async function plugin(bb: BbPluginApi) {
       type: "boolean",
       label: "Capture local server",
       description:
-        "Turn on to detect code-server or VS Code Server on ports 8080 and 8000 and save the first healthy endpoint. Turn off to clear the server URL captured by this switch.",
+        "Turn on to detect code-server or VS Code Server on ports 8080 and 8000 and save the first healthy endpoint. Turn off to clear the configured server URL.",
       default: false,
     },
     sourceUserDataDirectory: {
@@ -238,25 +238,16 @@ export default async function plugin(bb: BbPluginApi) {
     }
   };
 
-  const storeCapturedServerUrl = async (serverUrl: string): Promise<void> => {
-    await bb.storage.kv.set("captured-server-url", serverUrl);
+  const storeServerUrl = async (serverUrl: string): Promise<void> => {
     await settings.experimental_set({ serverUrl });
-  };
-
-  const clearCapturedServerUrl = async (serverUrl: string): Promise<void> => {
-    const capturedServerUrl = await bb.storage.kv.get<string>("captured-server-url");
-    await bb.storage.kv.delete("captured-server-url");
-    if (capturedServerUrl === normalizeServerUrl(serverUrl)) {
-      await settings.experimental_set({ serverUrl: "" });
-    }
   };
 
   settings.onChange((next, previous) => {
     if (next.autoCaptureLocalServer && !previous.autoCaptureLocalServer) {
-      void discoverAndStoreServerUrl(storeCapturedServerUrl);
+      void discoverAndStoreServerUrl(storeServerUrl);
     }
     if (!next.autoCaptureLocalServer && previous.autoCaptureLocalServer) {
-      void clearCapturedServerUrl(next.serverUrl);
+      void settings.experimental_set({ serverUrl: "" });
     }
     if (
       next.serverUrl === previous.serverUrl &&
@@ -274,7 +265,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     vscode_server_url: ({ threadId }) => getResponse(threadId),
     discover_vscode_server_url: async ({ threadId }) => {
-      const url = await discoverAndStoreServerUrl(storeCapturedServerUrl);
+      const url = await discoverAndStoreServerUrl(storeServerUrl);
       if (url !== null) await importProfile(url);
       return getResponse(threadId);
     },
