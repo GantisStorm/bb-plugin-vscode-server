@@ -19007,8 +19007,8 @@ async function plugin(bb) {
     },
     autoCaptureLocalServer: {
       type: "boolean",
-      label: "Auto-capture local server",
-      description: "Turn on to detect code-server or VS Code Server on ports 8080 and 8000. The setting turns itself off after each capture attempt.",
+      label: "Capture local server",
+      description: "Turn on to detect code-server or VS Code Server on ports 8080 and 8000 and save the first healthy endpoint. Turn it off and on again to capture again.",
       default: false
     },
     sourceUserDataDirectory: {
@@ -19080,9 +19080,7 @@ ${profile.targetExtensionsDirectory}`;
   settings.onChange((next, previous) => {
     if (next.autoCaptureLocalServer && !previous.autoCaptureLocalServer) {
       void discoverAndStoreServerUrl(async (serverUrl) => {
-        await settings.experimental_set({ serverUrl, autoCaptureLocalServer: false });
-      }).then(async (serverUrl) => {
-        if (serverUrl === null) await settings.experimental_set({ autoCaptureLocalServer: false });
+        await settings.experimental_set({ serverUrl });
       });
     }
     if (next.serverUrl === previous.serverUrl && next.sourceUserDataDirectory === previous.sourceUserDataDirectory && next.sourceExtensionsDirectory === previous.sourceExtensionsDirectory && next.targetUserDataDirectory === previous.targetUserDataDirectory && next.targetExtensionsDirectory === previous.targetExtensionsDirectory) {
