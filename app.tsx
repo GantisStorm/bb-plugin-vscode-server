@@ -22,6 +22,7 @@ function VsCodeServerContent({ threadId }: { threadId: string | null }) {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
   const [state, setState] = useState<UrlState>({ kind: "loading" });
+  const [isHeaderExpanded, setIsHeaderExpanded] = useState(false);
 
   const load = useCallback(() => {
     setState({ kind: "loading" });
@@ -56,24 +57,37 @@ function VsCodeServerContent({ threadId }: { threadId: string | null }) {
   if (state.kind === "ready") {
     return (
       <div className="flex h-full min-h-0 flex-col bg-background">
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-3 py-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm text-muted-foreground">{state.url}</p>
-            <p className={state.profile.error === null ? "truncate text-xs text-muted-foreground" : "truncate text-xs text-destructive"}>
-              {state.profile.error === null
-                ? state.profile.importedAt === null
-                  ? `Profile: ${state.profile.targetUserDataDirectory}`
-                  : `Profile imported ${new Date(state.profile.importedAt).toLocaleString()}`
-                : state.profile.error}
-            </p>
-          </div>
+        <div className="shrink-0 border-b border-border">
           <button
             type="button"
-            className="inline-flex h-8 shrink-0 items-center rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-            onClick={() => navigate.openUrl(state.url)}
+            className="flex h-7 w-full items-center justify-between gap-3 px-3 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            aria-expanded={isHeaderExpanded}
+            onClick={() => setIsHeaderExpanded((expanded) => !expanded)}
           >
-            Open in Browser
+            <span className="truncate">VS Code Server</span>
+            <span>{isHeaderExpanded ? "Hide details" : "Show details"}</span>
           </button>
+          {isHeaderExpanded ? (
+            <div className="flex items-center justify-between gap-3 border-t border-border px-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm text-muted-foreground">{state.url}</p>
+                <p className={state.profile.error === null ? "truncate text-xs text-muted-foreground" : "truncate text-xs text-destructive"}>
+                  {state.profile.error === null
+                    ? state.profile.importedAt === null
+                      ? `Profile: ${state.profile.targetUserDataDirectory}`
+                      : `Profile imported ${new Date(state.profile.importedAt).toLocaleString()}`
+                    : state.profile.error}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="inline-flex h-8 shrink-0 items-center rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                onClick={() => navigate.openUrl(state.url)}
+              >
+                Open in Browser
+              </button>
+            </div>
+          ) : null}
         </div>
         <iframe
           title="VS Code Server"
