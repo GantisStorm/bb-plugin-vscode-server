@@ -18899,11 +18899,11 @@ var loopbackCandidates = ["http://127.0.0.1:8080", "http://127.0.0.1:8000"];
 var homeDirectory = homedir();
 var rpcContract = defineRpcContract({
   vscode_server_url: {
-    input: external_exports.null(),
+    input: external_exports.object({ threadId: external_exports.string().min(1).nullable() }),
     output: configuredUrlSchema
   },
   discover_vscode_server_url: {
-    input: external_exports.null(),
+    input: external_exports.object({ threadId: external_exports.string().min(1).nullable() }),
     output: configuredUrlSchema
   }
 });
@@ -18919,6 +18919,11 @@ function normalizeServerUrl(value) {
   } catch {
     return null;
   }
+}
+function withWorkspaceFolder(serverUrl, workspacePath) {
+  const url2 = new URL(serverUrl);
+  url2.searchParams.set("folder", workspacePath);
+  return url2.toString();
 }
 function isLoopbackUrl(url2) {
   const hostname3 = new URL(url2).hostname;
@@ -19034,14 +19039,15 @@ async function plugin(bb) {
       normalizeDirectory(configured.targetExtensionsDirectory)
     );
   };
-  const getResponse = async () => {
+  const getResponse = async (threadId) => {
     const { serverUrl } = await settings.get();
+    const url2 = normalizeServerUrl(serverUrl) ?? normalizeServerUrl(process.env.VSCODE_SERVER_URL ?? "");
     const profile = await getProfile();
     const storedProfile = await bb.storage.kv.get("profile-import");
-    return {
-      url: normalizeServerUrl(serverUrl) ?? normalizeServerUrl(process.env.VSCODE_SERVER_URL ?? ""),
-      profile: storedProfile ?? profile
-    };
+    if (url2 === null || threadId === null) return { url: url2, profile: storedProfile ?? profile };
+    const thread = await bb.sdk.threads.get({ threadId });
+    const workspacePath = thread.environmentId === null ? (await bb.sdk.threads.storageLocation({ threadId })).storageRootPath : (await bb.sdk.environments.get({ environmentId: thread.environmentId })).path ?? (await bb.sdk.threads.storageLocation({ threadId })).storageRootPath;
+    return { url: withWorkspaceFolder(url2, workspacePath), profile: storedProfile ?? profile };
   };
   let activeImport = null;
   let activeImportKey = null;
@@ -19073,13 +19079,13 @@ ${profile.targetExtensionsDirectory}`;
     if (url2 !== null) void importProfile(url2);
   });
   bb.rpc.register(rpcContract, {
-    vscode_server_url: getResponse,
-    discover_vscode_server_url: async () => {
+    vscode_server_url: ({ threadId }) => getResponse(threadId),
+    discover_vscode_server_url: async ({ threadId }) => {
       const url2 = await discoverAndStoreServerUrl(async (serverUrl) => {
         await settings.experimental_set({ serverUrl });
       });
       if (url2 !== null) await importProfile(url2);
-      return getResponse();
+      return getResponse(threadId);
     }
   });
 }
@@ -19088,6 +19094,7 @@ export {
   discoverAndStoreServerUrl,
   discoverServerUrl,
   importLocalProfile,
-  rpcContract
+  rpcContract,
+  withWorkspaceFolder
 };
 //# sourceMappingURL=server.js.map

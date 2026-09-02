@@ -30,7 +30,7 @@ The plugin settings also show the desktop VS Code profile and extension director
 
 ## Use
 
-In any thread, open the right panel, choose **Open new tab**, then select **VS Code**. A thread has one VS Code panel; reopening it focuses that panel. The panel reloads its configuration when opened; use **Reload configuration** after changing the setting while it is already open. When no URL is configured, **Detect local server** probes the standard local VS Code Server and code-server health endpoints on ports 8080 and 8000, saves the first healthy endpoint in the plugin setting, and imports the configured local profile. **Open in Browser** delegates the URL to BB’s native Browser, whose tabs remain available across thread navigation.
+In any thread, open the right panel, choose **Open new tab**, then select **VS Code**. A thread has one VS Code panel; reopening it focuses that panel. The panel opens code-server at the thread environment’s workspace; threads without an environment open at their BB thread-storage folder. It reloads its configuration when opened; use **Reload configuration** after changing the setting while it is already open. When no URL is configured, **Detect local server** probes the standard local VS Code Server and code-server health endpoints on ports 8080 and 8000, saves the first healthy endpoint in the plugin setting, and imports the configured local profile. **Open in Browser** delegates the URL to BB's native Browser, whose tabs remain available across thread navigation.
 
 ## Development
 

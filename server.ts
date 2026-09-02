@@ -25,11 +25,11 @@ const homeDirectory = homedir();
 
 export const rpcContract = defineRpcContract({
   vscode_server_url: {
-    input: z.null(),
+    input: z.object({ threadId: z.string().min(1).nullable() }),
     output: configuredUrlSchema,
   },
   discover_vscode_server_url: {
-    input: z.null(),
+    input: z.object({ threadId: z.string().min(1).nullable() }),
     output: configuredUrlSchema,
   },
 });
@@ -51,6 +51,12 @@ function normalizeServerUrl(value: string): string | null {
   } catch {
     return null;
   }
+}
+
+export function withWorkspaceFolder(serverUrl: string, workspacePath: string): string {
+  const url = new URL(serverUrl);
+  url.searchParams.set("folder", workspacePath);
+  return url.toString();
 }
 
 function isLoopbackUrl(url: string): boolean {
@@ -190,14 +196,20 @@ export default async function plugin(bb: BbPluginApi) {
       normalizeDirectory(configured.targetExtensionsDirectory),
     );
   };
-  const getResponse = async () => {
+  const getResponse = async (threadId: string | null) => {
     const { serverUrl } = await settings.get();
+    const url = normalizeServerUrl(serverUrl) ?? normalizeServerUrl(process.env.VSCODE_SERVER_URL ?? "");
     const profile = await getProfile();
     const storedProfile = await bb.storage.kv.get<ProfileImportStatus>("profile-import");
-    return {
-      url: normalizeServerUrl(serverUrl) ?? normalizeServerUrl(process.env.VSCODE_SERVER_URL ?? ""),
-      profile: storedProfile ?? profile,
-    };
+    if (url === null || threadId === null) return { url, profile: storedProfile ?? profile };
+
+    const thread = await bb.sdk.threads.get({ threadId });
+    const workspacePath =
+      thread.environmentId === null
+        ? (await bb.sdk.threads.storageLocation({ threadId })).storageRootPath
+        : (await bb.sdk.environments.get({ environmentId: thread.environmentId })).path ??
+          (await bb.sdk.threads.storageLocation({ threadId })).storageRootPath;
+    return { url: withWorkspaceFolder(url, workspacePath), profile: storedProfile ?? profile };
   };
   let activeImport: Promise<ProfileImportStatus> | null = null;
   let activeImportKey: string | null = null;
@@ -234,13 +246,13 @@ export default async function plugin(bb: BbPluginApi) {
   });
 
   bb.rpc.register(rpcContract, {
-    vscode_server_url: getResponse,
-    discover_vscode_server_url: async () => {
+    vscode_server_url: ({ threadId }) => getResponse(threadId),
+    discover_vscode_server_url: async ({ threadId }) => {
       const url = await discoverAndStoreServerUrl(async (serverUrl) => {
         await settings.experimental_set({ serverUrl });
       });
       if (url !== null) await importProfile(url);
-      return getResponse();
+      return getResponse(threadId);
     },
   });
 }

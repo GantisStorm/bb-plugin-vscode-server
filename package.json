@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-vscode-server",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "type": "module",
   "description": "Embeds a configured code-server or VS Code Server instance in BB right-panel tabs.",
   "license": "MIT",
@@ -20,7 +20,7 @@
     "name": "VS Code Server",
     "description": "Embeds a configured VS Code server in BB side panels.",
     "branding": {
-      "icon": "Code2"
+      "icon": "./assets/vscode.svg"
     },
     "server": "./server.ts",
     "app": "./app.tsx"

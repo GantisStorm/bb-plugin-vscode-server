@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
-import plugin, { discoverAndStoreServerUrl, discoverServerUrl, importLocalProfile } from "./server";
+import plugin, { discoverAndStoreServerUrl, discoverServerUrl, importLocalProfile, withWorkspaceFolder } from "./server";
 
 describe("VS Code Server configuration", () => {
   it("normalizes a configured server URL before exposing it to the panel", async () => {
@@ -13,7 +13,7 @@ describe("VS Code Server configuration", () => {
     });
     await plugin(bb);
 
-    await expect(harness.behavior.callRpc("vscode_server_url", null)).resolves.toMatchObject({
+    await expect(harness.behavior.callRpc("vscode_server_url", { threadId: null })).resolves.toMatchObject({
       url: "http://127.0.0.1:8080",
       profile: {
         importedAt: null,
@@ -29,13 +29,19 @@ describe("VS Code Server configuration", () => {
     });
     await plugin(bb);
 
-    await expect(harness.behavior.callRpc("vscode_server_url", null)).resolves.toMatchObject({
+    await expect(harness.behavior.callRpc("vscode_server_url", { threadId: null })).resolves.toMatchObject({
       url: null,
       profile: {
         importedAt: null,
         error: null,
       },
     });
+  });
+
+  it("opens the server at the selected workspace folder", () => {
+    expect(withWorkspaceFolder("http://127.0.0.1:8080", "/work/project")).toBe(
+      "http://127.0.0.1:8080/?folder=%2Fwork%2Fproject",
+    );
   });
 
 

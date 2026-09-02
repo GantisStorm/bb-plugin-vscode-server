@@ -18,14 +18,14 @@ type UrlState =
   | { kind: "missing" }
   | { kind: "error"; message: string };
 
-function VsCodeServerPanel() {
+function VsCodeServerContent({ threadId }: { threadId: string | null }) {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
   const [state, setState] = useState<UrlState>({ kind: "loading" });
 
   const load = useCallback(() => {
     setState({ kind: "loading" });
-    rpc.call("vscode_server_url").then(
+    rpc.call("vscode_server_url", { threadId }).then(
       ({ url, profile }) =>
         setState(url === null ? { kind: "missing" } : { kind: "ready", url, profile }),
       (cause) =>
@@ -34,11 +34,11 @@ function VsCodeServerPanel() {
           message: cause instanceof Error ? cause.message : String(cause),
         }),
     );
-  }, [rpc]);
+  }, [rpc, threadId]);
 
   const discover = useCallback(() => {
     setState({ kind: "detecting" });
-    rpc.call("discover_vscode_server_url").then(
+    rpc.call("discover_vscode_server_url", { threadId }).then(
       ({ url, profile }) =>
         setState(url === null ? { kind: "missing" } : { kind: "ready", url, profile }),
       (cause) =>
@@ -47,7 +47,7 @@ function VsCodeServerPanel() {
           message: cause instanceof Error ? cause.message : String(cause),
         }),
     );
-  }, [rpc]);
+  }, [rpc, threadId]);
 
   useEffect(() => {
     load();
@@ -124,12 +124,19 @@ function VsCodeServerPanel() {
   );
 }
 
+function ThreadVsCodeServerPanel({ threadId }: { threadId: string }) {
+  return <VsCodeServerContent threadId={threadId} />;
+}
+
+function NewThreadVsCodeServerPanel() {
+  return <VsCodeServerContent threadId={null} />;
+}
+
 export default definePluginApp((app) => {
   app.slots.threadPanelAction({
     id: "vscode-server",
     title: "VS Code",
-    icon: "Code2",
-    component: VsCodeServerPanel,
+    component: ThreadVsCodeServerPanel,
     layout: "flush",
     run: ({ openPanel, threadId }) => {
       openPanel({ title: "VS Code", params: { threadId } });
@@ -138,8 +145,7 @@ export default definePluginApp((app) => {
   app.slots.experimental_newThreadPanelAction({
     id: "vscode-server",
     title: "VS Code",
-    icon: "Code2",
-    component: VsCodeServerPanel,
+    component: NewThreadVsCodeServerPanel,
     layout: "flush",
     run: ({ openPanel }) => {
       openPanel({ title: "VS Code", params: { source: "new-thread" } });
