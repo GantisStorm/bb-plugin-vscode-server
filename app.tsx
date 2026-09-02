@@ -2,10 +2,19 @@ import { useCallback, useEffect, useState } from "react";
 import { definePluginApp, useBbNavigate, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "./server";
 
+type ProfileImportStatus = {
+  sourceUserDataDirectory: string;
+  sourceExtensionsDirectory: string;
+  targetUserDataDirectory: string;
+  targetExtensionsDirectory: string;
+  importedAt: string | null;
+  error: string | null;
+};
+
 type UrlState =
   | { kind: "loading" }
   | { kind: "detecting" }
-  | { kind: "ready"; url: string }
+  | { kind: "ready"; url: string; profile: ProfileImportStatus }
   | { kind: "missing" }
   | { kind: "error"; message: string };
 
@@ -17,7 +26,8 @@ function VsCodeServerPanel() {
   const load = useCallback(() => {
     setState({ kind: "loading" });
     rpc.call("vscode_server_url").then(
-      ({ url }) => setState(url === null ? { kind: "missing" } : { kind: "ready", url }),
+      ({ url, profile }) =>
+        setState(url === null ? { kind: "missing" } : { kind: "ready", url, profile }),
       (cause) =>
         setState({
           kind: "error",
@@ -29,7 +39,8 @@ function VsCodeServerPanel() {
   const discover = useCallback(() => {
     setState({ kind: "detecting" });
     rpc.call("discover_vscode_server_url").then(
-      ({ url }) => setState(url === null ? { kind: "missing" } : { kind: "ready", url }),
+      ({ url, profile }) =>
+        setState(url === null ? { kind: "missing" } : { kind: "ready", url, profile }),
       (cause) =>
         setState({
           kind: "error",
@@ -46,7 +57,16 @@ function VsCodeServerPanel() {
     return (
       <div className="flex h-full min-h-0 flex-col bg-background">
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-3 py-2">
-          <span className="truncate text-sm text-muted-foreground">{state.url}</span>
+          <div className="min-w-0">
+            <p className="truncate text-sm text-muted-foreground">{state.url}</p>
+            <p className={state.profile.error === null ? "truncate text-xs text-muted-foreground" : "truncate text-xs text-destructive"}>
+              {state.profile.error === null
+                ? state.profile.importedAt === null
+                  ? `Profile: ${state.profile.targetUserDataDirectory}`
+                  : `Profile imported ${new Date(state.profile.importedAt).toLocaleString()}`
+                : state.profile.error}
+            </p>
+          </div>
           <button
             type="button"
             className="inline-flex h-8 shrink-0 items-center rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"

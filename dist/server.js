@@ -11,6 +11,9 @@ var __export = (target, all) => {
 };
 
 // server.ts
+import { cp, stat } from "node:fs/promises";
+import { homedir } from "node:os";
+import { resolve } from "node:path";
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 
 // node_modules/zod/v4/classic/external.js
@@ -18880,10 +18883,20 @@ function date4(params) {
 }
 
 // server.ts
+var profileImportStatusSchema = external_exports.object({
+  sourceUserDataDirectory: external_exports.string(),
+  sourceExtensionsDirectory: external_exports.string(),
+  targetUserDataDirectory: external_exports.string(),
+  targetExtensionsDirectory: external_exports.string(),
+  importedAt: external_exports.string().datetime().nullable(),
+  error: external_exports.string().nullable()
+});
 var configuredUrlSchema = external_exports.object({
-  url: external_exports.string().url().nullable()
+  url: external_exports.string().url().nullable(),
+  profile: profileImportStatusSchema
 });
 var loopbackCandidates = ["http://127.0.0.1:8080", "http://127.0.0.1:8000"];
+var homeDirectory = homedir();
 var rpcContract = defineRpcContract({
   vscode_server_url: {
     input: external_exports.null(),
@@ -18907,6 +18920,20 @@ function normalizeServerUrl(value) {
     return null;
   }
 }
+function isLoopbackUrl(url2) {
+  const hostname3 = new URL(url2).hostname;
+  return hostname3 === "127.0.0.1" || hostname3 === "::1" || hostname3 === "localhost";
+}
+function normalizeDirectory(value) {
+  return resolve(value.trim());
+}
+async function isDirectory(path) {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch {
+    return false;
+  }
+}
 async function discoverServerUrl() {
   for (const url2 of loopbackCandidates) {
     try {
@@ -18925,33 +18952,142 @@ async function discoverAndStoreServerUrl(storeServerUrl) {
   if (url2 !== null) await storeServerUrl(url2);
   return url2;
 }
+function createProfileStatus(sourceUserDataDirectory, sourceExtensionsDirectory, targetUserDataDirectory, targetExtensionsDirectory) {
+  return {
+    sourceUserDataDirectory,
+    sourceExtensionsDirectory,
+    targetUserDataDirectory,
+    targetExtensionsDirectory,
+    importedAt: null,
+    error: null
+  };
+}
+async function importLocalProfile(url2, profile) {
+  if (!isLoopbackUrl(url2)) {
+    return {
+      ...profile,
+      error: "Profile import is available only for a local VS Code Server URL."
+    };
+  }
+  if (!await isDirectory(profile.sourceUserDataDirectory) || !await isDirectory(profile.sourceExtensionsDirectory)) {
+    return {
+      ...profile,
+      error: "The configured desktop VS Code profile or extensions directory was not found."
+    };
+  }
+  try {
+    await cp(profile.sourceUserDataDirectory, resolve(profile.targetUserDataDirectory, "User"), {
+      recursive: true,
+      force: true
+    });
+    await cp(profile.sourceExtensionsDirectory, profile.targetExtensionsDirectory, {
+      recursive: true,
+      force: true
+    });
+    return { ...profile, importedAt: (/* @__PURE__ */ new Date()).toISOString(), error: null };
+  } catch (cause) {
+    return {
+      ...profile,
+      error: cause instanceof Error ? cause.message : String(cause)
+    };
+  }
+}
 async function plugin(bb) {
   const settings = bb.settings.define({
     serverUrl: {
       type: "string",
       label: "VS Code Server URL",
-      description: "The http(s) URL of code-server or VS Code Server. Overrides VSCODE_SERVER_URL.",
+      description: "The http(s) URL of code-server or VS Code Server. Saving a local URL imports the configured desktop profile. Overrides VSCODE_SERVER_URL.",
       default: ""
+    },
+    sourceUserDataDirectory: {
+      type: "string",
+      label: "Desktop VS Code profile",
+      description: "The desktop VS Code User directory to import after a local server URL is configured.",
+      default: resolve(homeDirectory, "Library/Application Support/Code/User")
+    },
+    sourceExtensionsDirectory: {
+      type: "string",
+      label: "Desktop VS Code extensions",
+      description: "The desktop VS Code extensions directory to import after a local server URL is configured.",
+      default: resolve(homeDirectory, ".vscode/extensions")
+    },
+    targetUserDataDirectory: {
+      type: "string",
+      label: "code-server profile",
+      description: "The code-server user-data directory that receives the imported VS Code profile.",
+      default: resolve(homeDirectory, ".local/share/code-server")
+    },
+    targetExtensionsDirectory: {
+      type: "string",
+      label: "code-server extensions",
+      description: "The code-server extensions directory that receives the imported VS Code extensions.",
+      default: resolve(homeDirectory, ".local/share/code-server/extensions")
     }
   });
+  const getProfile = async () => {
+    const configured = await settings.get();
+    return createProfileStatus(
+      normalizeDirectory(configured.sourceUserDataDirectory),
+      normalizeDirectory(configured.sourceExtensionsDirectory),
+      normalizeDirectory(configured.targetUserDataDirectory),
+      normalizeDirectory(configured.targetExtensionsDirectory)
+    );
+  };
+  const getResponse = async () => {
+    const { serverUrl } = await settings.get();
+    const profile = await getProfile();
+    const storedProfile = await bb.storage.kv.get("profile-import");
+    return {
+      url: normalizeServerUrl(serverUrl) ?? normalizeServerUrl(process.env.VSCODE_SERVER_URL ?? ""),
+      profile: storedProfile ?? profile
+    };
+  };
+  let activeImport = null;
+  let activeImportKey = null;
+  const importProfile = async (url2) => {
+    const profile = await getProfile();
+    const importKey = `${url2}
+${profile.sourceUserDataDirectory}
+${profile.sourceExtensionsDirectory}
+${profile.targetUserDataDirectory}
+${profile.targetExtensionsDirectory}`;
+    if (activeImport !== null && activeImportKey === importKey) return activeImport;
+    activeImportKey = importKey;
+    activeImport = importLocalProfile(url2, profile).then(async (result) => {
+      await bb.storage.kv.set("profile-import", result);
+      return result;
+    });
+    try {
+      return await activeImport;
+    } finally {
+      activeImport = null;
+      activeImportKey = null;
+    }
+  };
+  settings.onChange((next, previous) => {
+    if (next.serverUrl === previous.serverUrl && next.sourceUserDataDirectory === previous.sourceUserDataDirectory && next.sourceExtensionsDirectory === previous.sourceExtensionsDirectory && next.targetUserDataDirectory === previous.targetUserDataDirectory && next.targetExtensionsDirectory === previous.targetExtensionsDirectory) {
+      return;
+    }
+    const url2 = normalizeServerUrl(next.serverUrl);
+    if (url2 !== null) void importProfile(url2);
+  });
   bb.rpc.register(rpcContract, {
-    vscode_server_url: async () => {
-      const { serverUrl } = await settings.get();
-      return {
-        url: normalizeServerUrl(serverUrl) ?? normalizeServerUrl(process.env.VSCODE_SERVER_URL ?? "")
-      };
-    },
-    discover_vscode_server_url: async () => ({
-      url: await discoverAndStoreServerUrl(async (serverUrl) => {
+    vscode_server_url: getResponse,
+    discover_vscode_server_url: async () => {
+      const url2 = await discoverAndStoreServerUrl(async (serverUrl) => {
         await settings.experimental_set({ serverUrl });
-      })
-    })
+      });
+      if (url2 !== null) await importProfile(url2);
+      return getResponse();
+    }
   });
 }
 export {
   plugin as default,
   discoverAndStoreServerUrl,
   discoverServerUrl,
+  importLocalProfile,
   rpcContract
 };
 //# sourceMappingURL=server.js.map

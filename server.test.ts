@@ -1,6 +1,9 @@
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
-import plugin, { discoverAndStoreServerUrl, discoverServerUrl } from "./server";
+import plugin, { discoverAndStoreServerUrl, discoverServerUrl, importLocalProfile } from "./server";
 
 describe("VS Code Server configuration", () => {
   it("normalizes a configured server URL before exposing it to the panel", async () => {
@@ -10,8 +13,12 @@ describe("VS Code Server configuration", () => {
     });
     await plugin(bb);
 
-    await expect(harness.behavior.callRpc("vscode_server_url", null)).resolves.toEqual({
+    await expect(harness.behavior.callRpc("vscode_server_url", null)).resolves.toMatchObject({
       url: "http://127.0.0.1:8080",
+      profile: {
+        importedAt: null,
+        error: null,
+      },
     });
   });
 
@@ -22,8 +29,12 @@ describe("VS Code Server configuration", () => {
     });
     await plugin(bb);
 
-    await expect(harness.behavior.callRpc("vscode_server_url", null)).resolves.toEqual({
+    await expect(harness.behavior.callRpc("vscode_server_url", null)).resolves.toMatchObject({
       url: null,
+      profile: {
+        importedAt: null,
+        error: null,
+      },
     });
   });
 
@@ -54,6 +65,72 @@ describe("VS Code Server configuration", () => {
       });
     } finally {
       vi.unstubAllGlobals();
+    }
+  });
+
+  it("imports a local desktop profile into the configured code-server directories", async () => {
+    const root = await mkdtemp(join(tmpdir(), "vscode-server-profile-"));
+    const sourceUserDataDirectory = join(root, "Code", "User");
+    const sourceExtensionsDirectory = join(root, "extensions");
+    const targetUserDataDirectory = join(root, "code-server");
+    const targetExtensionsDirectory = join(targetUserDataDirectory, "extensions");
+
+    try {
+      await mkdir(sourceUserDataDirectory, { recursive: true });
+      await mkdir(sourceExtensionsDirectory, { recursive: true });
+      await writeFile(join(sourceUserDataDirectory, "settings.json"), '{"workbench.colorTheme":"Dark Modern"}');
+      await writeFile(join(sourceExtensionsDirectory, "theme.txt"), "extension");
+
+      const result = await importLocalProfile("http://127.0.0.1:8080", {
+        sourceUserDataDirectory,
+        sourceExtensionsDirectory,
+        targetUserDataDirectory,
+        targetExtensionsDirectory,
+        importedAt: null,
+        error: null,
+      });
+
+      expect(result).toMatchObject({ error: null });
+      await expect(readFile(join(targetUserDataDirectory, "User", "settings.json"), "utf8")).resolves.toBe(
+        '{"workbench.colorTheme":"Dark Modern"}',
+      );
+      await expect(readFile(join(targetExtensionsDirectory, "theme.txt"), "utf8")).resolves.toBe("extension");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("imports the configured profile when a URL is saved in plugin settings", async () => {
+    const root = await mkdtemp(join(tmpdir(), "vscode-server-settings-"));
+    const sourceUserDataDirectory = join(root, "Code", "User");
+    const sourceExtensionsDirectory = join(root, "extensions");
+    const targetUserDataDirectory = join(root, "code-server");
+    const targetExtensionsDirectory = join(targetUserDataDirectory, "extensions");
+    const { bb, harness } = createFakePluginHost({
+      pluginId: "vscode-server",
+      settings: {
+        serverUrl: "",
+        sourceUserDataDirectory,
+        sourceExtensionsDirectory,
+        targetUserDataDirectory,
+        targetExtensionsDirectory,
+      },
+    });
+
+    try {
+      await mkdir(sourceUserDataDirectory, { recursive: true });
+      await mkdir(sourceExtensionsDirectory, { recursive: true });
+      await writeFile(join(sourceUserDataDirectory, "settings.json"), '{"editor.minimap.enabled":false}');
+      await plugin(bb);
+      await harness.behavior.setSettings({ serverUrl: "http://127.0.0.1:8080" });
+
+      await vi.waitFor(async () => {
+        await expect(readFile(join(targetUserDataDirectory, "User", "settings.json"), "utf8")).resolves.toBe(
+          '{"editor.minimap.enabled":false}',
+        );
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
     }
   });
 });
